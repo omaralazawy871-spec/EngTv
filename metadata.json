@@ -1,6 +1,6 @@
 {
-  "name": "IPTV Player",
-  "description": "A high-quality native IPTV player supporting M3U playlists, categorized live streams, and channel search with modern UI controls.",
+  "name": "EngTv",
+  "description": "EngTv is a premium IPTV-style TV viewing application built with high-speed rendering, offering optimized live streaming channels, full-screen playback support, and an elegant dark theme.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
