@@ -1,12 +1,8 @@
 package com.example.data
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
-
-@Entity(tableName = "playlists")
 data class Playlist(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val id: Int = 0,
     val name: String,
-    val sourceUrl: String, // Can be "local_file" or actual HTTP URL
+    val sourceUrl: String,
     val addedAt: Long = System.currentTimeMillis()
 )
