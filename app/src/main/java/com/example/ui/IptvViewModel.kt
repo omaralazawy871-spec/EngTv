@@ -1,7 +1,6 @@
 package com.example.ui
 
 import android.app.Application
-import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.Channel
@@ -60,7 +59,6 @@ class IptvViewModel(application: Application) : AndroidViewModel(application) {
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     }
 
-    // Reactively fetch group titles when selected playlist changes
     val groupTitles: StateFlow<List<String>> = _selectedPlaylist
         .flatMapLatest { playlist ->
             if (playlist == null) {
@@ -80,11 +78,11 @@ class IptvViewModel(application: Application) : AndroidViewModel(application) {
         Triple(playlist, group, query)
     }.flatMapLatest { (playlist, group, query) ->
         when {
-            query.isNotEmpty() -> {
-                repository.searchChannels(query)
+            // التعديل هنا: استخدام playlist.id عند البحث
+            query.isNotEmpty() && playlist != null -> {
+                repository.searchChannels(playlist.id, query)
             }
             playlist == null -> {
-                // If no playlist is selected, return empty (or we can return all channels if preferred)
                 flowOf(emptyList())
             }
             group == "All" || group == null -> {
@@ -98,8 +96,8 @@ class IptvViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectPlaylist(playlist: Playlist?) {
         _selectedPlaylist.value = playlist
-        _selectedGroup.value = "All" // Reset group selection
-        _searchQuery.value = "" // Reset search
+        _selectedGroup.value = "All"
+        _searchQuery.value = ""
     }
 
     fun selectGroup(group: String?) {
@@ -117,7 +115,6 @@ class IptvViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleFavorite(channel: Channel) {
         viewModelScope.launch {
             repository.updateFavoriteStatus(channel.id, !channel.isFavorite)
-            // If the current playing channel is the one updated, update its reference to reflect favorite icon change
             if (_currentPlayingChannel.value?.id == channel.id) {
                 _currentPlayingChannel.value = channel.copy(isFavorite = !channel.isFavorite)
             }
@@ -135,7 +132,6 @@ class IptvViewModel(application: Application) : AndroidViewModel(application) {
             val result = repository.addPlaylistFromUrl(name, url)
             result.onSuccess {
                 _importState.value = ImportState.Success("Playlist loaded successfully!")
-                // Automatically select the newly added playlist if possible
                 viewModelScope.launch {
                     playlists.collect { list ->
                         val newlyAdded = list.firstOrNull { it.name == name && it.sourceUrl == url }
@@ -162,7 +158,6 @@ class IptvViewModel(application: Application) : AndroidViewModel(application) {
             val result = repository.addPlaylistFromContent(name, content)
             result.onSuccess {
                 _importState.value = ImportState.Success("Playlist imported successfully!")
-                // Automatically select the newly added playlist if possible
                 viewModelScope.launch {
                     playlists.collect { list ->
                         val newlyAdded = list.firstOrNull { it.name == name && it.sourceUrl == "local_file" }
@@ -180,12 +175,10 @@ class IptvViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deletePlaylist(playlist: Playlist) {
         viewModelScope.launch {
-            // If the deleted playlist has the current playing channel, stop playing
             if (_currentPlayingChannel.value?.playlistId == playlist.id) {
                 _currentPlayingChannel.value = null
             }
             
-            // If the deleted playlist is currently selected, clear selection
             if (_selectedPlaylist.value?.id == playlist.id) {
                 _selectedPlaylist.value = null
             }
