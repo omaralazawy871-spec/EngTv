@@ -83,7 +83,7 @@ dependencies {
 
     implementation(libs.androidx.activity.compose)
 
-
+implementation("io.coil-kt:coil-compose:2.7.0")
 
     // Compose UI
 
