@@ -4,6 +4,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -11,12 +15,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.Channel
 
+
 @Composable
 fun HomeScreen(
     viewModel: IptvViewModel = viewModel()
 ) {
 
-    val playlists by viewModel.playlists.collectAsState()
+
     val channels by viewModel.channels.collectAsState()
 
     var selectedChannel by remember {
@@ -24,7 +29,14 @@ fun HomeScreen(
     }
 
 
+    var search by remember {
+        mutableStateOf("")
+    }
+
+
+
     if (selectedChannel != null) {
+
 
         PlayerScreen(
             channel = selectedChannel!!,
@@ -34,13 +46,16 @@ fun HomeScreen(
         )
 
         return
+
     }
+
+
 
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(10.dp)
     ) {
 
 
@@ -51,125 +66,155 @@ fun HomeScreen(
 
 
         Spacer(
-            modifier = Modifier.height(20.dp)
+            modifier = Modifier.height(10.dp)
         )
 
 
-        if (playlists.isEmpty()) {
 
-
-            Button(
-                onClick = {
-
-                    viewModel.addPlaylistFromUrl(
-                        "ALWAN SPORTS",
-                        "https://m3uextractor.indexiptv212.workers.dev/download/0241cbac-61a4-4b8e-9973-1c289d2232fc/Live_AR%20_%20ALWAN%20VIP.m3u8"
-                    )
-
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-
-                Text("تحميل القنوات")
-
-            }
-
-
-        } else {
-
-
-            Text(
-                text = "القوائم",
-                style = MaterialTheme.typography.titleLarge
-            )
-
-
-            Spacer(
-                modifier = Modifier.height(10.dp)
-            )
-
-
-            playlists.forEach { playlist ->
-
-                Button(
-                    onClick = {
-                        viewModel.selectPlaylist(playlist)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-
-                    Text(playlist.name)
-
-                }
-
-            }
-
-
-            Spacer(
-                modifier = Modifier.height(15.dp)
-            )
-
-
-            LazyColumn {
-
-                items(channels) { channel ->
-
-
-                    ChannelItem(
-                        channel = channel,
-                        onClick = {
-
-                            selectedChannel = channel
-
-                        }
-                    )
-
-
-                }
-
-            }
-
-        }
-
-    }
-
-}
-
-
-
-@Composable
-fun ChannelItem(
-    channel: Channel,
-    onClick: () -> Unit
-) {
-
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(5.dp)
-            .clickable {
-
-                onClick()
-
-            }
-    ) {
-
-
-        Column(
-            modifier = Modifier.padding(16.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
 
 
-            Text(
-                text = channel.name,
-                style = MaterialTheme.typography.titleMedium
-            )
+            IconButton(
+                onClick = {}
+            ) {
+
+                Icon(
+                    Icons.Default.Search,
+                    "Search"
+                )
+
+            }
 
 
-            Text(
-                text = channel.groupTitle ?: "Other"
-            )
+            IconButton(
+                onClick = {}
+            ) {
+
+                Icon(
+                    Icons.Default.Refresh,
+                    "Refresh"
+                )
+
+            }
+
+
+
+            IconButton(
+                onClick = {}
+            ) {
+
+                Icon(
+                    Icons.Default.Star,
+                    "Favorites"
+                )
+
+            }
+
+
+
+        }
+
+
+
+        OutlinedTextField(
+
+            value = search,
+
+            onValueChange = {
+                search = it
+            },
+
+            modifier = Modifier.fillMaxWidth(),
+
+            placeholder = {
+                Text("بحث عن قناة")
+            }
+
+        )
+
+
+
+        Spacer(
+            modifier = Modifier.height(15.dp)
+        )
+
+
+
+        LazyColumn {
+
+
+            val groups =
+                channels
+                    .filter {
+                        it.name.contains(
+                            search,
+                            ignoreCase = true
+                        )
+                    }
+                    .groupBy {
+                        it.groupTitle ?: "OTHER SPORTS"
+                    }
+
+
+
+            groups.forEach { (group, list) ->
+
+
+
+                item {
+
+
+                    Text(
+                        text = "📂 $group",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(8.dp)
+                    )
+
+
+                }
+
+
+
+                items(list) { channel ->
+
+
+
+                    Card(
+
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(5.dp)
+                                .clickable {
+
+                                    selectedChannel = channel
+
+                                }
+
+                    ) {
+
+
+                        Text(
+
+                            text = channel.name,
+
+                            modifier =
+                                Modifier.padding(16.dp)
+
+                        )
+
+
+                    }
+
+
+
+                }
+
+
+            }
 
 
         }
