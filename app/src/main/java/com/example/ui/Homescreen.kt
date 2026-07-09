@@ -5,9 +5,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -21,22 +21,27 @@ fun HomeScreen(
     viewModel: IptvViewModel = viewModel()
 ) {
 
-
     val channels by viewModel.channels.collectAsState()
+    val favorites by viewModel.favoriteChannels.collectAsState()
+
 
     var selectedChannel by remember {
         mutableStateOf<Channel?>(null)
     }
 
 
-    var search by remember {
+    var searchText by remember {
         mutableStateOf("")
+    }
+
+
+    var showFavorites by remember {
+        mutableStateOf(false)
     }
 
 
 
     if (selectedChannel != null) {
-
 
         PlayerScreen(
             channel = selectedChannel!!,
@@ -46,27 +51,21 @@ fun HomeScreen(
         )
 
         return
-
     }
-
 
 
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(10.dp)
+            .padding(12.dp)
     ) {
+
 
 
         Text(
             text = "EngTv",
             style = MaterialTheme.typography.headlineLarge
-        )
-
-
-        Spacer(
-            modifier = Modifier.height(10.dp)
         )
 
 
@@ -78,7 +77,11 @@ fun HomeScreen(
 
 
             IconButton(
-                onClick = {}
+                onClick = {
+
+                    // البحث موجود بالحقل
+
+                }
             ) {
 
                 Icon(
@@ -89,8 +92,13 @@ fun HomeScreen(
             }
 
 
+
             IconButton(
-                onClick = {}
+                onClick = {
+
+                    viewModel.refresh()
+
+                }
             ) {
 
                 Icon(
@@ -103,7 +111,11 @@ fun HomeScreen(
 
 
             IconButton(
-                onClick = {}
+                onClick = {
+
+                    showFavorites = !showFavorites
+
+                }
             ) {
 
                 Icon(
@@ -119,12 +131,13 @@ fun HomeScreen(
 
 
 
+
         OutlinedTextField(
 
-            value = search,
+            value = searchText,
 
             onValueChange = {
-                search = it
+                searchText = it
             },
 
             modifier = Modifier.fillMaxWidth(),
@@ -143,20 +156,35 @@ fun HomeScreen(
 
 
 
+        val displayChannels =
+            if (showFavorites)
+                favorites
+            else
+                channels
+
+
+
         LazyColumn {
 
 
+            val filtered =
+                displayChannels.filter {
+
+                    it.name.contains(
+                        searchText,
+                        ignoreCase = true
+                    )
+
+                }
+
+
+
             val groups =
-                channels
-                    .filter {
-                        it.name.contains(
-                            search,
-                            ignoreCase = true
-                        )
-                    }
-                    .groupBy {
-                        it.groupTitle ?: "OTHER SPORTS"
-                    }
+                filtered.groupBy {
+
+                    it.groupTitle ?: "OTHER SPORTS"
+
+                }
 
 
 
@@ -168,9 +196,15 @@ fun HomeScreen(
 
 
                     Text(
+
                         text = "📂 $group",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(8.dp)
+
+                        style =
+                            MaterialTheme.typography.titleLarge,
+
+                        modifier =
+                            Modifier.padding(8.dp)
+
                     )
 
 
@@ -190,7 +224,8 @@ fun HomeScreen(
                                 .padding(5.dp)
                                 .clickable {
 
-                                    selectedChannel = channel
+                                    selectedChannel =
+                                        channel
 
                                 }
 
@@ -208,7 +243,6 @@ fun HomeScreen(
 
 
                     }
-
 
 
                 }
