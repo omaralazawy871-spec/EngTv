@@ -103,9 +103,10 @@ interface IptvDao {
     """)
     fun getAllChannels(): Flow<List<Channel>>
 
+
     @Query("""
         SELECT * FROM channels
-        WHERE streamUrl = :url
+        WHERE url = :url
         LIMIT 1
     """)
     suspend fun findChannelByUrl(
