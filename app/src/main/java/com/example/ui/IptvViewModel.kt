@@ -3,34 +3,12 @@ package com.example.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.Channel
-import com.example.data.DefaultPlaylist
-import com.example.data.IptvDatabase
-import com.example.data.IptvRepository
-import com.example.data.Playlist
+import com.example.data.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 
-sealed interface ImportState {
-
-    object Idle : ImportState
-
-    object Loading : ImportState
-
-    data class Success(
-        val message: String
-    ) : ImportState
-
-    data class Error(
-        val error: String
-    ) : ImportState
-}
-
-
-
-@OptIn(ExperimentalCoroutinesApi::class)
 class IptvViewModel(
     application: Application
 ) : AndroidViewModel(application) {
@@ -44,19 +22,12 @@ class IptvViewModel(
     val favoriteChannels: StateFlow<List<Channel>>
 
 
+
     private val _selectedPlaylist =
         MutableStateFlow<Playlist?>(null)
 
     val selectedPlaylist =
         _selectedPlaylist.asStateFlow()
-
-
-
-    private val _selectedGroup =
-        MutableStateFlow<String?>("All")
-
-    val selectedGroup =
-        _selectedGroup.asStateFlow()
 
 
 
@@ -68,23 +39,15 @@ class IptvViewModel(
 
 
 
-    private val _importState =
-        MutableStateFlow<ImportState>(ImportState.Idle)
-
-    val importState =
-        _importState.asStateFlow()
-
-
-
     init {
 
 
-        val database =
+        val db =
             IptvDatabase.getDatabase(application)
 
 
         repository =
-            IptvRepository(database.iptvDao())
+            IptvRepository(db.iptvDao())
 
 
 
@@ -108,27 +71,19 @@ class IptvViewModel(
 
 
 
-        loadDefaultPlaylist()
+        loadDefault()
 
     }
 
 
 
 
-    private fun loadDefaultPlaylist() {
-
+    private fun loadDefault() {
 
         viewModelScope.launch {
 
 
-            val exists =
-                repository.allPlaylists
-                    .first()
-                    .isNotEmpty()
-
-
-
-            if (!exists) {
+            if (repository.allPlaylists.first().isEmpty()) {
 
 
                 repository.addPlaylistFromUrl(
@@ -142,29 +97,27 @@ class IptvViewModel(
 
         }
 
-
     }
-
 
 
 
 
     val channels: StateFlow<List<Channel>> =
         _selectedPlaylist
-            .flatMapLatest { playlist ->
+            .flatMapLatest {
+
+                playlist ->
 
 
-                if (playlist == null) {
+                if (playlist == null)
 
                     flowOf(emptyList())
 
-                } else {
+                else
 
                     repository.getChannelsForPlaylist(
                         playlist.id
                     )
-
-                }
 
             }
             .stateIn(
@@ -181,10 +134,41 @@ class IptvViewModel(
         playlist: Playlist
     ) {
 
-        _selectedPlaylist.value = playlist
+        _selectedPlaylist.value =
+            playlist
 
     }
 
+
+
+
+
+    fun refresh() {
+
+
+        viewModelScope.launch {
+
+
+            val playlist =
+                _selectedPlaylist.value
+                    ?: playlists.value.firstOrNull()
+
+
+            if (playlist != null) {
+
+
+                repository.refreshPlaylist(
+                    playlist.id,
+                    playlist.sourceUrl
+                )
+
+
+            }
+
+
+        }
+
+    }
 
 
 
@@ -198,49 +182,5 @@ class IptvViewModel(
 
     }
 
-
-
-
-
-    fun addPlaylistFromUrl(
-        name: String,
-        url: String
-    ) {
-
-
-        viewModelScope.launch {
-
-
-            repository.addPlaylistFromUrl(
-                name,
-                url
-            )
-
-
-        }
-
-
-    }
-
-
-
-
-    fun deletePlaylist(
-        playlist: Playlist
-    ) {
-
-
-        viewModelScope.launch {
-
-
-            repository.deletePlaylist(
-                playlist.id
-            )
-
-
-        }
-
-
-    }
 
 }
