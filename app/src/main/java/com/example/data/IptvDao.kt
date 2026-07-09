@@ -102,4 +102,14 @@ interface IptvDao {
         ORDER BY name COLLATE NOCASE ASC
     """)
     fun getAllChannels(): Flow<List<Channel>>
+
+    @Query("""
+        SELECT * FROM channels
+        WHERE streamUrl = :url
+        LIMIT 1
+    """)
+    suspend fun findChannelByUrl(
+        url: String
+    ): Channel?
+
 }
