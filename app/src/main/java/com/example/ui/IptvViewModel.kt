@@ -91,15 +91,14 @@ class IptvViewModel(
         loadDefault()
     }
 
-
 private fun loadDefault() {
 
     viewModelScope.launch {
 
-        val existing =
+        val existingPlaylists =
             repository.allPlaylists.first()
 
-        if (existing.isEmpty()) {
+        if (existingPlaylists.isEmpty()) {
 
             val result =
                 repository.addPlaylistFromUrl(
@@ -109,28 +108,30 @@ private fun loadDefault() {
 
             if (result.isSuccess) {
 
-                val playlist =
+                val newPlaylist =
                     repository.allPlaylists.first()
                         .firstOrNull()
 
-                _selectedPlaylist.value =
-                    playlist
+                newPlaylist?.let {
+                    _selectedPlaylist.value = it
+                    _selectedGroup.value = "All"
+                }
 
-                _selectedGroup.value =
-                    "All"
             }
 
         } else {
 
+            val firstPlaylist =
+                existingPlaylists.first()
+
             _selectedPlaylist.value =
-                existing.first()
+                firstPlaylist
 
             _selectedGroup.value =
                 "All"
         }
     }
 }
-
 
 
     val channels: StateFlow<List<Channel>> =
