@@ -7,10 +7,16 @@ import androidx.room.PrimaryKey
 data class Channel(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
+
     val playlistId: Int = 0,
+
     val name: String,
+
     val streamUrl: String,
+
     val logoUrl: String? = null,
+
     val groupTitle: String? = null,
+
     val isFavorite: Boolean = false
 )
