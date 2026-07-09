@@ -2,90 +2,83 @@ package com.example.data
 
 object M3uParser {
 
-    fun parse(m3uContent: String, playlistId: Int): List<Channel> {
+    fun parse(
+        m3uContent: String,
+        playlistId: Int
+    ): List<Channel> {
 
         val channels = mutableListOf<Channel>()
 
-        var name = ""
-        var logo: String? = null
-        var group = ""
+        val lines = m3uContent
+            .lines()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
 
-        m3uContent.lines().forEach { raw ->
 
-            val line = raw.trim()
+        var currentInfo = ""
+
+        for (line in lines) {
 
             if (line.startsWith("#EXTINF")) {
 
-                logo = Regex("""tvg-logo="([^"]*)"""")
-                    .find(line)
-                    ?.groupValues
-                    ?.getOrNull(1)
-
-                val originalGroup =
-                    Regex("""group-title="([^"]*)"""")
-                        .find(line)
-                        ?.groupValues
-                        ?.getOrNull(1)
-                        ?: ""
-
-                name = line.substringAfterLast(",")
-
-                val lower = name.lowercase()
-
-                group = when {
-
-                    lower.contains("alwan") ->
-                        "ALWAN SPORTS"
-
-                    lower.contains("bein") ||
-                    lower.contains("bein sports") ->
-                        "beIN SPORTS"
-
-                    lower.contains("ssc") ->
-                        "SSC SPORTS"
-
-                    lower.contains("alkass") ||
-                    name.contains("الكأس") ->
-                        "ALKASS"
-
-                    lower.contains("ad sport") ||
-                    name.contains("أبوظبي") ->
-                        "AD SPORTS"
-
-                    lower.contains("dubai sport") ->
-                        "DUBAI SPORTS"
-
-                    lower.contains("iraq") ->
-                        "IRAQ"
-
-                    lower.contains("local") ||
-                    lower.contains("kurd") ->
-                        "KURDISH LOCAL"
-
-                    originalGroup.isNotBlank() ->
-                        originalGroup
-
-                    else ->
-                        "OTHER"
-                }
+                currentInfo = line
 
             } else if (
-                line.isNotBlank() &&
-                !line.startsWith("#")
+                line.startsWith("http")
             ) {
 
-                channels.add(
-                    Channel(
-                        playlistId = playlistId,
-                        name = name,
-                        streamUrl = line,
-                        logoUrl = logo,
-                        groupTitle = group
+                val name = extractName(currentInfo)
+
+                if (name.isNotEmpty()) {
+
+                    channels.add(
+                        Channel(
+                            playlistId = playlistId,
+                            name = name,
+                            url = line,
+                            logo = extractLogo(currentInfo),
+                            groupTitle = extractGroup(currentInfo),
+                            category = extractGroup(currentInfo)
+                                ?: "General"
+                        )
                     )
-                )
+                }
+
+                currentInfo = ""
             }
         }
 
         return channels
+    }
+
+
+    private fun extractName(info: String): String {
+
+        if (!info.contains(",")) return ""
+
+        return info.substringAfter(",")
+            .trim()
+    }
+
+
+    private fun extractLogo(info: String): String? {
+
+        val regex =
+            Regex("""tvg-logo="(.*?)"""")
+
+        return regex.find(info)
+            ?.groupValues
+            ?.get(1)
+    }
+
+
+    private fun extractGroup(info: String): String? {
+
+        val regex =
+            Regex("""group-title="(.*?)"""")
+
+        return regex.find(info)
+            ?.groupValues
+            ?.get(1)
     }
 }
