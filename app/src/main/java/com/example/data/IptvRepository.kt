@@ -140,4 +140,12 @@ class IptvRepository(private val iptvDao: IptvDao) {
             Result.failure(e)
         }
     }
+
+    suspend fun findChannelByUrl(
+        url: String
+    ): Channel? = withContext(Dispatchers.IO) {
+
+        iptvDao.findChannelByUrl(url)
+
+    }
 }
