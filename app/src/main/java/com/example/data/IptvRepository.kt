@@ -28,9 +28,14 @@ class IptvRepository(private val iptvDao: IptvDao) {
     fun getChannelsByGroup(playlistId: Int, groupTitle: String?): Flow<List<Channel>> =
         iptvDao.getChannelsByGroup(playlistId, groupTitle)
 
-    // تم تعديل هذه الدالة لتأخذ playlistId كمعامل إضافي
-    fun searchChannels(playlistId: Int, query: String): Flow<List<Channel>> =
-        iptvDao.searchChannels(playlistId, query)
+    fun searchChannels(
+        playlistId: Int,
+        query: String
+    ): Flow<List<Channel>> =
+        iptvDao.searchChannels(
+            playlistId,
+            query
+        )
 
     suspend fun updateFavoriteStatus(channelId: Int, isFavorite: Boolean) {
         withContext(Dispatchers.IO) {
