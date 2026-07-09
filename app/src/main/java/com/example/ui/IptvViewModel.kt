@@ -1,316 +1,290 @@
-package com.example.ui
+‏package com.example.ui
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.data.*
-import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
-
-
-class IptvViewModel(
-    application: Application
-) : AndroidViewModel(application) {
+‏import android.app.Application
+‏import androidx.lifecycle.AndroidViewModel
+‏import androidx.lifecycle.viewModelScope
+‏import com.example.data.*
+‏import kotlinx.coroutines.flow.*
+‏import kotlinx.coroutines.launch
 
 
-    private val repository: IptvRepository
+‏class IptvViewModel(
+‏    application: Application
+‏) : AndroidViewModel(application) {
 
 
-    val playlists: StateFlow<List<Playlist>>
+‏    private val repository: IptvRepository
 
-    val favoriteChannels: StateFlow<List<Channel>>
-
-
-    private val _selectedPlaylist =
-        MutableStateFlow<Playlist?>(null)
-
-    val selectedPlaylist =
-        _selectedPlaylist.asStateFlow()
+‏    private val lastChannelManager =
+‏        LastChannelManager(application)
 
 
+‏    val playlists: StateFlow<List<Playlist>>
 
-    private val _currentPlayingChannel =
-        MutableStateFlow<Channel?>(null)
+‏    val favoriteChannels: StateFlow<List<Channel>>
 
-    val currentPlayingChannel =
-        _currentPlayingChannel.asStateFlow()
+
+‏    private val _selectedPlaylist =
+‏        MutableStateFlow<Playlist?>(null)
+
+‏    val selectedPlaylist =
+‏        _selectedPlaylist.asStateFlow()
 
 
 
-    private val _selectedGroup =
-        MutableStateFlow<String?>(null)
+‏    private val _currentPlayingChannel =
+‏        MutableStateFlow<Channel?>(null)
 
-    val selectedGroup =
-        _selectedGroup.asStateFlow()
-
-
-
-    private val _searchQuery =
-        MutableStateFlow("")
-
-    val searchQuery =
-        _searchQuery.asStateFlow()
+‏    val currentPlayingChannel =
+‏        _currentPlayingChannel.asStateFlow()
 
 
 
-    private val _importState =
-        MutableStateFlow<ImportState>(ImportState.Idle)
+‏    private val _selectedGroup =
+‏        MutableStateFlow<String?>(null)
 
-    val importState =
-        _importState.asStateFlow()
-
-
-
-    init {
-
-        val db =
-            IptvDatabase.getDatabase(application)
-
-        repository =
-            IptvRepository(db.iptvDao())
+‏    val selectedGroup =
+‏        _selectedGroup.asStateFlow()
 
 
-        playlists =
-            repository.allPlaylists
-                .stateIn(
-                    viewModelScope,
-                    SharingStarted.WhileSubscribed(5000),
-                    emptyList()
+
+‏    private val _searchQuery =
+‏        MutableStateFlow("")
+
+‏    val searchQuery =
+‏        _searchQuery.asStateFlow()
+
+
+
+‏    private val _importState =
+‏        MutableStateFlow<ImportState>(ImportState.Idle)
+
+‏    val importState =
+‏        _importState.asStateFlow()
+
+
+
+‏    init {
+
+‏        val db =
+‏            IptvDatabase.getDatabase(application)
+
+‏        repository =
+‏            IptvRepository(db.iptvDao())
+
+
+‏        playlists =
+‏            repository.allPlaylists
+‏                .stateIn(
+‏                    viewModelScope,
+‏                    SharingStarted.WhileSubscribed(5000),
+‏                    emptyList()
                 )
 
 
-        favoriteChannels =
-            repository.favoriteChannels
-                .stateIn(
-                    viewModelScope,
-                    SharingStarted.WhileSubscribed(5000),
-                    emptyList()
+‏        favoriteChannels =
+‏            repository.favoriteChannels
+‏                .stateIn(
+‏                    viewModelScope,
+‏                    SharingStarted.WhileSubscribed(5000),
+‏                    emptyList()
                 )
 
 
-        loadDefault()
+‏        loadDefault()
+
+‏        restoreLastChannel()
+
     }
 
-private fun loadDefault() {
 
-    viewModelScope.launch {
 
-        val existingPlaylists =
-            repository.allPlaylists.first()
+‏    private fun loadDefault() {
 
-        if (existingPlaylists.isEmpty()) {
+‏        viewModelScope.launch {
 
-            val result =
-                repository.addPlaylistFromUrl(
-                    DefaultPlaylist.NAME,
-                    DefaultPlaylist.URL
-                )
+‏            val existingPlaylists =
+‏                repository.allPlaylists.first()
 
-            if (result.isSuccess) {
 
-                val newPlaylist =
-                    repository.allPlaylists.first()
-                        .firstOrNull()
+‏            if (existingPlaylists.isEmpty()) {
 
-                newPlaylist?.let {
-                    _selectedPlaylist.value = it
-                    _selectedGroup.value = "All"
+‏                val result =
+‏                    repository.addPlaylistFromUrl(
+‏                        DefaultPlaylist.NAME,
+‏                        DefaultPlaylist.URL
+                    )
+
+
+‏                if (result.isSuccess) {
+
+‏                    val playlist =
+‏                        repository.allPlaylists.first()
+‏                            .firstOrNull()
+
+
+‏                    playlist?.let {
+
+‏                        _selectedPlaylist.value = it
+
+‏                        _selectedGroup.value = "All"
+
+                    }
                 }
 
+
+‏            } else {
+
+‏                _selectedPlaylist.value =
+‏                    existingPlaylists.first()
+
+‏                _selectedGroup.value =
+‏                    "All"
             }
-
-        } else {
-
-            val firstPlaylist =
-                existingPlaylists.first()
-
-            _selectedPlaylist.value =
-                firstPlaylist
-
-            _selectedGroup.value =
-                "All"
         }
     }
-}
 
 
-    val channels: StateFlow<List<Channel>> =
-        combine(
-            _selectedPlaylist,
-            _selectedGroup,
-            _searchQuery
-        ) { playlist, group, search ->
 
-            Triple(
-                playlist,
-                group,
-                search
-            )
+‏    private fun restoreLastChannel() {
 
-        }.flatMapLatest { (playlist, group, search) ->
+‏        viewModelScope.launch {
+
+‏            val saved =
+‏                lastChannelManager.getLastChannel()
+‏                    ?: return@launch
 
 
-            if (playlist == null) {
-
-                flowOf(emptyList())
-
-            } else if (search.isNotBlank()) {
-
-                repository.searchChannels(
-                    playlist.id,
-                    search
+‏            val channel =
+‏                repository.findChannelByUrl(
+‏                    saved.url
                 )
 
-            } else {
 
-                repository.getChannelsByGroup(
-                    playlist.id,
-                    group
+‏            if (channel != null) {
+
+‏                _currentPlayingChannel.value =
+‏                    channel
+
+            }
+
+        }
+
+    }
+
+‏    val channels: StateFlow<List<Channel>> =
+‏        combine(
+‏            _selectedPlaylist,
+‏            _selectedGroup,
+‏            _searchQuery
+‏        ) { playlist, group, search ->
+
+‏            Triple(
+‏                playlist,
+‏                group,
+‏                search
+            )
+
+‏        }.flatMapLatest { (playlist, group, search) ->
+
+‏            if (playlist == null) {
+
+‏                flowOf(emptyList())
+
+‏            } else if (search.isNotBlank()) {
+
+‏                repository.searchChannels(
+‏                    playlist.id,
+‏                    search
+                )
+
+‏            } else {
+
+‏                repository.getChannelsByGroup(
+‏                    playlist.id,
+‏                    group
                 )
             }
 
-
-        }.stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            emptyList()
+‏        }.stateIn(
+‏            viewModelScope,
+‏            SharingStarted.WhileSubscribed(5000),
+‏            emptyList()
         )
 
 
 
+‏    val groupTitles: StateFlow<List<String>> =
+‏        _selectedPlaylist
+‏            .flatMapLatest { playlist ->
 
-    val groupTitles: StateFlow<List<String>> =
-        _selectedPlaylist
-            .flatMapLatest { playlist ->
+‏                if (playlist == null)
 
-                if (playlist == null)
+‏                    flowOf(emptyList())
 
-                    flowOf(emptyList())
+‏                else
 
-                else
-
-                    repository.getGroupTitlesForPlaylist(
-                        playlist.id
+‏                    repository.getGroupTitlesForPlaylist(
+‏                        playlist.id
                     )
 
             }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
-                emptyList()
+‏            .stateIn(
+‏                viewModelScope,
+‏                SharingStarted.WhileSubscribed(5000),
+‏                emptyList()
             )
 
 
 
 
-    fun selectPlaylist(
-        playlist: Playlist?
+‏    fun selectPlaylist(
+‏        playlist: Playlist?
     ) {
 
-        _selectedPlaylist.value = playlist
+‏        _selectedPlaylist.value = playlist
+‏        _selectedGroup.value = "All"
+‏        _searchQuery.value = ""
 
-        _selectedGroup.value = "All"
+    }
 
-        _searchQuery.value = ""
+
+
+‏    fun selectGroup(
+‏        group: String?
+    ) {
+
+‏        _selectedGroup.value = group
 
     }
 
 
 
 
-
-    fun selectGroup(
-        group: String?
+‏    fun setSearchQuery(
+‏        query: String
     ) {
 
-        _selectedGroup.value = group
+‏        _searchQuery.value = query
 
     }
 
 
 
 
-    fun setSearchQuery(
-        query: String
+‏    fun playChannel(
+‏        channel: Channel?
     ) {
 
-        _searchQuery.value = query
-
-    }
+‏        _currentPlayingChannel.value = channel
 
 
+‏        channel?.let {
 
+‏            viewModelScope.launch {
 
-    fun playChannel(
-        channel: Channel?
-    ) {
-
-        _currentPlayingChannel.value = channel
-
-    }
-
-
-
-
-    fun toggleFavorite(
-        channel: Channel
-    ) {
-
-        viewModelScope.launch {
-
-            repository.updateFavoriteStatus(
-                channel.id,
-                !channel.isFavorite
-            )
-
-        }
-
-    }
-
-
-
-
-
-    fun deletePlaylist(
-        playlist: Playlist
-    ) {
-
-        viewModelScope.launch {
-
-            repository.deletePlaylist(
-                playlist.id
-            )
-
-
-            if (_selectedPlaylist.value?.id == playlist.id) {
-
-                _selectedPlaylist.value = null
-
-            }
-
-        }
-
-    }
-
-
-
-
-
-    fun refresh() {
-
-        viewModelScope.launch {
-
-
-            val playlist =
-                _selectedPlaylist.value
-                    ?: playlists.value.firstOrNull()
-
-
-            playlist?.let {
-
-                repository.refreshPlaylist(
-                    it.id,
-                    it.sourceUrl
+‏                lastChannelManager.saveChannel(
+‏                    it
                 )
 
             }
@@ -323,36 +297,129 @@ private fun loadDefault() {
 
 
 
-    fun addPlaylistFromUrl(
-        name: String,
-        url: String
+‏    fun toggleFavorite(
+‏        channel: Channel
     ) {
 
-        viewModelScope.launch {
+‏        viewModelScope.launch {
 
-            _importState.value =
-                ImportState.Loading
+‏            repository.updateFavoriteStatus(
+‏                channel.id,
+‏                !channel.isFavorite
+            )
+
+        }
+
+    }
 
 
-            val result =
-                repository.addPlaylistFromUrl(
-                    name,
-                    url
+
+
+
+‏    fun deletePlaylist(
+‏        playlist: Playlist
+    ) {
+
+‏        viewModelScope.launch {
+
+‏            repository.deletePlaylist(
+‏                playlist.id
+            )
+
+
+‏            if (_selectedPlaylist.value?.id == playlist.id) {
+
+‏                _selectedPlaylist.value = null
+‏                _currentPlayingChannel.value = null
+
+‏                lastChannelManager.clear()
+
+            }
+
+        }
+
+    }
+
+
+
+
+
+‏    fun refresh() {
+
+‏        viewModelScope.launch {
+
+‏            val playlist =
+‏                _selectedPlaylist.value
+‏                    ?: playlists.value.firstOrNull()
+
+
+‏            playlist?.let {
+
+‏                repository.refreshPlaylist(
+‏                    it.id,
+‏                    it.sourceUrl
+                )
+
+            }
+
+        }
+
+    }
+
+
+
+
+
+‏    fun addPlaylistFromUrl(
+‏        name: String,
+‏        url: String
+    ) {
+
+‏        viewModelScope.launch {
+
+‏            _importState.value =
+‏                ImportState.Loading
+
+
+‏            val result =
+‏                repository.addPlaylistFromUrl(
+‏                    name,
+‏                    url
                 )
 
 
-            _importState.value =
-                result.fold(
+‏            _importState.value =
+‏                result.fold(
 
-                    onSuccess = {
-                        ImportState.Success()
+‏                    onSuccess = {
+
+‏                        val newPlaylist =
+‏                            repository.allPlaylists.first()
+‏                                .firstOrNull()
+
+
+‏                        newPlaylist?.let { playlist ->
+
+‏                            _selectedPlaylist.value =
+‏                                playlist
+
+‏                            _selectedGroup.value =
+‏                                "All"
+
+                        }
+
+
+‏                        ImportState.Success()
                     },
 
-                    onFailure = {
-                        ImportState.Error(
-                            it.message
+
+‏                    onFailure = {
+
+‏                        ImportState.Error(
+‏                            it.message
                                 ?: "خطأ غير معروف"
                         )
+
                     }
 
                 )
@@ -365,37 +432,58 @@ private fun loadDefault() {
 
 
 
-    fun addPlaylistFromContent(
-        name: String,
-        content: String
+‏    fun addPlaylistFromContent(
+‏        name: String,
+‏        content: String
     ) {
 
-        viewModelScope.launch {
+‏        viewModelScope.launch {
 
 
-            _importState.value =
-                ImportState.Loading
+‏            _importState.value =
+‏                ImportState.Loading
 
 
-            val result =
-                repository.addPlaylistFromContent(
-                    name,
-                    content
+‏            val result =
+‏                repository.addPlaylistFromContent(
+‏                    name,
+‏                    content
                 )
 
 
-            _importState.value =
-                result.fold(
+‏            _importState.value =
+‏                result.fold(
 
-                    onSuccess = {
-                        ImportState.Success()
+‏                    onSuccess = {
+
+‏                        val newPlaylist =
+‏                            repository.allPlaylists.first()
+‏                                .firstOrNull()
+
+
+‏                        newPlaylist?.let { playlist ->
+
+‏                            _selectedPlaylist.value =
+‏                                playlist
+
+‏                            _selectedGroup.value =
+‏                                "All"
+
+                        }
+
+
+‏                        ImportState.Success()
+
                     },
 
-                    onFailure = {
-                        ImportState.Error(
-                            it.message
+
+‏                    onFailure = {
+
+‏                        ImportState.Error(
+‏                            it.message
                                 ?: "خطأ غير معروف"
                         )
+
                     }
 
                 )
@@ -408,10 +496,10 @@ private fun loadDefault() {
 
 
 
-    fun resetImportState() {
+‏    fun resetImportState() {
 
-        _importState.value =
-            ImportState.Idle
+‏        _importState.value =
+‏            ImportState.Idle
 
     }
 
@@ -419,11 +507,11 @@ private fun loadDefault() {
 
 
 
-    fun updatePlaylists() {
+‏    fun updatePlaylists() {
 
-        addPlaylistFromUrl(
-            name = "ALWAN VIP",
-            url = DefaultPlaylist.URL
+‏        addPlaylistFromUrl(
+‏            name = "ALWAN VIP",
+‏            url = DefaultPlaylist.URL
         )
 
     }
