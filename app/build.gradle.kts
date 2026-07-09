@@ -85,7 +85,9 @@ dependencies {
 
     implementation("io.coil-kt:coil-compose:2.7.0")
 
-    // Compose UI
+   implementation("androidx.datastore:datastore-preferences:1.1.1")
+    
+  // Compose UI
 
     implementation(libs.androidx.compose.material.icons.core)
 
