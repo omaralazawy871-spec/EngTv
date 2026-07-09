@@ -202,7 +202,7 @@ fun PortraitLayout(
             currentPlayingChannel?.let { channel ->
                 Column(modifier = Modifier.fillMaxWidth()) {
                     VideoPlayer(
-                        streamUrl = channel.streamUrl,
+                        streamUrl = channel.url,
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(16f / 9f)
@@ -317,7 +317,7 @@ fun LandscapeLayout(
             if (currentPlayingChannel != null) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     VideoPlayer(
-                        streamUrl = currentPlayingChannel.streamUrl,
+                        streamUrl = currentPlayingChannel.url,
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
@@ -512,7 +512,7 @@ fun PlayingChannelBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             ChannelLogo(
-                logoUrl = channel.logoUrl,
+                logoUrl = channel.logo,
                 channelName = channel.name,
                 modifier = Modifier.size(42.dp)
             )
@@ -862,7 +862,7 @@ fun ChannelCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             ChannelLogo(
-                logoUrl = channel.logoUrl,
+                logoUrl = channel.logo,
                 channelName = channel.name,
                 modifier = Modifier.size(50.dp)
             )
