@@ -8,15 +8,19 @@ data class Channel(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
 
-    val playlistId: Int = 0,
+    val playlistId: Int,
 
     val name: String,
 
-    val streamUrl: String,
+    val url: String,
 
-    val logoUrl: String? = null,
+    val logo: String? = null,
+
+    val category: String = "General",
 
     val groupTitle: String? = null,
 
-    val isFavorite: Boolean = false
+    val isFavorite: Boolean = false,
+
+    val lastPlayed: Boolean = false
 )
