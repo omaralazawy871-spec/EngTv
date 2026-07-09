@@ -18,7 +18,24 @@ fun HomeScreen(
 
     val playlists by viewModel.playlists.collectAsState()
     val channels by viewModel.channels.collectAsState()
-    val selectedPlaylist by viewModel.selectedPlaylist.collectAsState()
+
+    var selectedChannel by remember {
+        mutableStateOf<Channel?>(null)
+    }
+
+
+    if (selectedChannel != null) {
+
+        PlayerScreen(
+            channel = selectedChannel!!,
+            onBack = {
+                selectedChannel = null
+            }
+        )
+
+        return
+    }
+
 
     Column(
         modifier = Modifier
@@ -26,15 +43,20 @@ fun HomeScreen(
             .padding(16.dp)
     ) {
 
+
         Text(
             text = "EngTv",
             style = MaterialTheme.typography.headlineLarge
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+
+        Spacer(
+            modifier = Modifier.height(20.dp)
+        )
 
 
         if (playlists.isEmpty()) {
+
 
             Button(
                 onClick = {
@@ -44,12 +66,14 @@ fun HomeScreen(
                         "https://m3uextractor.indexiptv212.workers.dev/download/0241cbac-61a4-4b8e-9973-1c289d2232fc/Live_AR%20_%20ALWAN%20VIP.m3u8"
                     )
 
-                }
+                },
+                modifier = Modifier.fillMaxWidth()
             ) {
 
                 Text("تحميل القنوات")
 
             }
+
 
         } else {
 
@@ -57,6 +81,11 @@ fun HomeScreen(
             Text(
                 text = "القوائم",
                 style = MaterialTheme.typography.titleLarge
+            )
+
+
+            Spacer(
+                modifier = Modifier.height(10.dp)
             )
 
 
@@ -76,14 +105,25 @@ fun HomeScreen(
             }
 
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(
+                modifier = Modifier.height(15.dp)
+            )
 
 
             LazyColumn {
 
                 items(channels) { channel ->
 
-                    ChannelItem(channel)
+
+                    ChannelItem(
+                        channel = channel,
+                        onClick = {
+
+                            selectedChannel = channel
+
+                        }
+                    )
+
 
                 }
 
@@ -98,7 +138,11 @@ fun HomeScreen(
 
 
 @Composable
-fun ChannelItem(channel: Channel) {
+fun ChannelItem(
+    channel: Channel,
+    onClick: () -> Unit
+) {
+
 
     Card(
         modifier = Modifier
@@ -106,16 +150,32 @@ fun ChannelItem(channel: Channel) {
             .padding(5.dp)
             .clickable {
 
-                // لاحقاً نربط المشغل هنا
+                onClick()
 
             }
     ) {
 
-        Text(
-            text = channel.name,
+
+        Column(
             modifier = Modifier.padding(16.dp)
-        )
+        ) {
+
+
+            Text(
+                text = channel.name,
+                style = MaterialTheme.typography.titleMedium
+            )
+
+
+            Text(
+                text = channel.groupTitle ?: "Other"
+            )
+
+
+        }
+
 
     }
+
 
 }
