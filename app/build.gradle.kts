@@ -1,4 +1,4 @@
-plugins {
+Plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.devtools.ksp)
@@ -156,12 +156,9 @@ dependencies {
 
 
     // Room Database
-
-    implementation(libs.androidx.room.runtime)
-
-    implementation(libs.androidx.room.ktx)
-
-    ksp(libs.androidx.room.compiler)
+    implementation("androidx.room:room-runtime:2.7.0")
+    implementation("androidx.room:room-ktx:2.7.0")
+    ksp("androidx.room:room-compiler:2.7.0")
 
 
 
