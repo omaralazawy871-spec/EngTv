@@ -43,10 +43,6 @@ class IptvRepository(private val iptvDao: IptvDao) {
         }
     }
 
-    /**
-     * Downloads an M3U file from a URL and parses/stores it locally.
-     * Native OkHttp completely bypasses browser CORS.
-     */
     suspend fun addPlaylistFromUrl(name: String, url: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url(url).build()
@@ -60,19 +56,15 @@ class IptvRepository(private val iptvDao: IptvDao) {
                     return@withContext Result.failure(IOException("Downloaded playlist is empty"))
                 }
                 
-                // 1. Insert playlist and get new ID
                 val playlist = Playlist(name = name, sourceUrl = url)
                 val playlistId = iptvDao.insertPlaylist(playlist).toInt()
                 
-                // 2. Parse channels
                 val channels = M3uParser.parse(m3uContent, playlistId)
                 if (channels.isEmpty()) {
-                    // Cleanup inserted playlist if no channels could be parsed
                     iptvDao.deletePlaylist(playlistId)
                     return@withContext Result.failure(IOException("No valid channels found in M3U file"))
                 }
                 
-                // 3. Insert channels in bulk
                 iptvDao.insertChannels(channels)
                 Result.success(Unit)
             }
@@ -82,27 +74,21 @@ class IptvRepository(private val iptvDao: IptvDao) {
         }
     }
 
-    /**
-     * Imports an M3U playlist from direct text content (e.g., from local file or copy-paste).
-     */
     suspend fun addPlaylistFromContent(name: String, content: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             if (content.isBlank()) {
                 return@withContext Result.failure(IOException("M3U content is empty"))
             }
 
-            // 1. Insert playlist
             val playlist = Playlist(name = name, sourceUrl = "local_file")
             val playlistId = iptvDao.insertPlaylist(playlist).toInt()
 
-            // 2. Parse channels
             val channels = M3uParser.parse(content, playlistId)
             if (channels.isEmpty()) {
                 iptvDao.deletePlaylist(playlistId)
                 return@withContext Result.failure(IOException("No valid channels found in M3U content"))
             }
 
-            // 3. Insert channels
             iptvDao.insertChannels(channels)
             Result.success(Unit)
         } catch (e: Exception) {
@@ -111,11 +97,47 @@ class IptvRepository(private val iptvDao: IptvDao) {
         }
     }
 
-    /**
-     * Deletes a playlist and all its cached channels.
-     */
     suspend fun deletePlaylist(playlistId: Int) = withContext(Dispatchers.IO) {
         iptvDao.deleteChannelsByPlaylistId(playlistId)
         iptvDao.deletePlaylist(playlistId)
+    }
+   
+    suspend fun refreshPlaylist(
+        playlistId: Int,
+        url: String
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url(url)
+                .build()
+
+            okHttpClient.newCall(request)
+                .execute()
+                .use { response ->
+                    if (!response.isSuccessful) {
+                        return@withContext Result.failure(
+                            IOException("Server error ${response.code}")
+                        )
+                    }
+
+                    val content = response.body?.string() ?: ""
+
+                    if (content.isBlank()) {
+                        return@withContext Result.failure(
+                            IOException("Empty playlist")
+                        )
+                    }
+
+                    iptvDao.deleteChannelsByPlaylistId(playlistId)
+
+                    val channels = M3uParser.parse(content, playlistId)
+
+                    iptvDao.insertChannels(channels)
+
+                    Result.success(Unit)
+                }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }
