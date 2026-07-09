@@ -4,7 +4,6 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.*
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -20,7 +19,6 @@ class IptvViewModel(
     val playlists: StateFlow<List<Playlist>>
 
     val favoriteChannels: StateFlow<List<Channel>>
-
 
 
     private val _selectedPlaylist =
@@ -39,16 +37,37 @@ class IptvViewModel(
 
 
 
-    init {
+    private val _selectedGroup =
+        MutableStateFlow<String?>(null)
 
+    val selectedGroup =
+        _selectedGroup.asStateFlow()
+
+
+
+    private val _searchQuery =
+        MutableStateFlow("")
+
+    val searchQuery =
+        _searchQuery.asStateFlow()
+
+
+
+    private val _importState =
+        MutableStateFlow<ImportState>(ImportState.Idle)
+
+    val importState =
+        _importState.asStateFlow()
+
+
+
+    init {
 
         val db =
             IptvDatabase.getDatabase(application)
 
-
         repository =
             IptvRepository(db.iptvDao())
-
 
 
         playlists =
@@ -60,7 +79,6 @@ class IptvViewModel(
                 )
 
 
-
         favoriteChannels =
             repository.favoriteChannels
                 .stateIn(
@@ -70,11 +88,8 @@ class IptvViewModel(
                 )
 
 
-
         loadDefault()
-
     }
-
 
 
 
@@ -82,32 +97,66 @@ class IptvViewModel(
 
         viewModelScope.launch {
 
-
             if (repository.allPlaylists.first().isEmpty()) {
-
 
                 repository.addPlaylistFromUrl(
                     DefaultPlaylist.NAME,
                     DefaultPlaylist.URL
                 )
-
-
             }
-
-
         }
-
     }
 
 
 
-
     val channels: StateFlow<List<Channel>> =
+        combine(
+            _selectedPlaylist,
+            _selectedGroup,
+            _searchQuery
+        ) { playlist, group, search ->
+
+            Triple(
+                playlist,
+                group,
+                search
+            )
+
+        }.flatMapLatest { (playlist, group, search) ->
+
+
+            if (playlist == null) {
+
+                flowOf(emptyList())
+
+            } else if (search.isNotBlank()) {
+
+                repository.searchChannels(
+                    playlist.id,
+                    search
+                )
+
+            } else {
+
+                repository.getChannelsByGroup(
+                    playlist.id,
+                    group
+                )
+            }
+
+
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            emptyList()
+        )
+
+
+
+
+    val groupTitles: StateFlow<List<String>> =
         _selectedPlaylist
-            .flatMapLatest {
-
-                playlist ->
-
+            .flatMapLatest { playlist ->
 
                 if (playlist == null)
 
@@ -115,7 +164,7 @@ class IptvViewModel(
 
                 else
 
-                    repository.getChannelsForPlaylist(
+                    repository.getGroupTitlesForPlaylist(
                         playlist.id
                     )
 
@@ -129,13 +178,92 @@ class IptvViewModel(
 
 
 
-
     fun selectPlaylist(
+        playlist: Playlist?
+    ) {
+
+        _selectedPlaylist.value = playlist
+
+        _selectedGroup.value = "All"
+
+        _searchQuery.value = ""
+
+    }
+
+
+
+
+
+    fun selectGroup(
+        group: String?
+    ) {
+
+        _selectedGroup.value = group
+
+    }
+
+
+
+
+    fun setSearchQuery(
+        query: String
+    ) {
+
+        _searchQuery.value = query
+
+    }
+
+
+
+
+    fun playChannel(
+        channel: Channel?
+    ) {
+
+        _currentPlayingChannel.value = channel
+
+    }
+
+
+
+
+    fun toggleFavorite(
+        channel: Channel
+    ) {
+
+        viewModelScope.launch {
+
+            repository.updateFavoriteStatus(
+                channel.id,
+                !channel.isFavorite
+            )
+
+        }
+
+    }
+
+
+
+
+
+    fun deletePlaylist(
         playlist: Playlist
     ) {
 
-        _selectedPlaylist.value =
-            playlist
+        viewModelScope.launch {
+
+            repository.deletePlaylist(
+                playlist.id
+            )
+
+
+            if (_selectedPlaylist.value?.id == playlist.id) {
+
+                _selectedPlaylist.value = null
+
+            }
+
+        }
 
     }
 
@@ -145,7 +273,6 @@ class IptvViewModel(
 
     fun refresh() {
 
-
         viewModelScope.launch {
 
 
@@ -154,18 +281,15 @@ class IptvViewModel(
                     ?: playlists.value.firstOrNull()
 
 
-            if (playlist != null) {
-
+            playlist?.let {
 
                 repository.refreshPlaylist(
-                    playlist.id,
-                    playlist.sourceUrl
+                    it.id,
+                    it.sourceUrl
                 )
-
 
             }
 
-
         }
 
     }
@@ -173,25 +297,110 @@ class IptvViewModel(
 
 
 
-    fun playChannel(
-        channel: Channel
+
+    fun addPlaylistFromUrl(
+        name: String,
+        url: String
     ) {
-
-        _currentPlayingChannel.value =
-            channel
-
-    }
-
-    fun updatePlaylists() {
 
         viewModelScope.launch {
 
-            repository.addPlaylistFromUrl(
-                name = "ALWAN VIP",
-                url = "https://m3uextractor.indexiptv212.workers.dev/download/0241cbac-61a4-4b8e-9973-1c289d2232fc/Live_AR%20_%20ALWAN%20VIP.m3u8"
-            )
+            _importState.value =
+                ImportState.Loading
+
+
+            val result =
+                repository.addPlaylistFromUrl(
+                    name,
+                    url
+                )
+
+
+            _importState.value =
+                result.fold(
+
+                    onSuccess = {
+                        ImportState.Success()
+                    },
+
+                    onFailure = {
+                        ImportState.Error(
+                            it.message
+                                ?: "خطأ غير معروف"
+                        )
+                    }
+
+                )
 
         }
 
     }
+
+
+
+
+
+    fun addPlaylistFromContent(
+        name: String,
+        content: String
+    ) {
+
+        viewModelScope.launch {
+
+
+            _importState.value =
+                ImportState.Loading
+
+
+            val result =
+                repository.addPlaylistFromContent(
+                    name,
+                    content
+                )
+
+
+            _importState.value =
+                result.fold(
+
+                    onSuccess = {
+                        ImportState.Success()
+                    },
+
+                    onFailure = {
+                        ImportState.Error(
+                            it.message
+                                ?: "خطأ غير معروف"
+                        )
+                    }
+
+                )
+
+        }
+
+    }
+
+
+
+
+
+    fun resetImportState() {
+
+        _importState.value =
+            ImportState.Idle
+
+    }
+
+
+
+
+
+    fun updatePlaylists() {
+
+        addPlaylistFromUrl(
+            name = "ALWAN VIP",
+            url = DefaultPlaylist.URL
+        )
+
+    }
+
 }
