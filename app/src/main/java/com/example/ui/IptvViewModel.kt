@@ -92,20 +92,44 @@ class IptvViewModel(
     }
 
 
+private fun loadDefault() {
 
-    private fun loadDefault() {
+    viewModelScope.launch {
 
-        viewModelScope.launch {
+        val existing =
+            repository.allPlaylists.first()
 
-            if (repository.allPlaylists.first().isEmpty()) {
+        if (existing.isEmpty()) {
 
+            val result =
                 repository.addPlaylistFromUrl(
                     DefaultPlaylist.NAME,
                     DefaultPlaylist.URL
                 )
+
+            if (result.isSuccess) {
+
+                val playlist =
+                    repository.allPlaylists.first()
+                        .firstOrNull()
+
+                _selectedPlaylist.value =
+                    playlist
+
+                _selectedGroup.value =
+                    "All"
             }
+
+        } else {
+
+            _selectedPlaylist.value =
+                existing.first()
+
+            _selectedGroup.value =
+                "All"
         }
     }
+}
 
 
 
