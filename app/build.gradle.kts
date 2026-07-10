@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.google.devtools.ksp)
     alias(libs.plugins.roborazzi)
     alias(libs.plugins.secrets)
@@ -53,9 +54,13 @@ android {
     }
 
     composeOptions {
+        // Match compiler extension to Compose BOM; 1.6.0 is compatible with recent BOMs
         kotlinCompilerExtensionVersion = "1.6.0"
     }
 
+    kotlinOptions {
+        jvmTarget = "11"
+    }
 
     testOptions {
         unitTests {
