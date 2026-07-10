@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example"
+    namespace = "com.aistudio.iptvplayer.kdyzrw"
 
     compileSdk = 36
 
@@ -20,7 +20,6 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-
 
     buildTypes {
 
@@ -43,8 +42,8 @@ android {
 
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
 
@@ -53,6 +52,14 @@ android {
         buildConfig = true
     }
 
+    composeOptions {
+        // Keep compiler extension version in sync with Kotlin/Compose versions. Adjust if needed.
+        kotlinCompilerExtensionVersion = "1.5.4"
+    }
+
+    kotlinOptions {
+        // This block is ignored in Gradle Kotlin DSL here; we set jvmTarget in tasks below.
+    }
 
     testOptions {
         unitTests {
@@ -60,7 +67,6 @@ android {
         }
     }
 }
-
 
 
 secrets {
@@ -206,4 +212,12 @@ dependencies {
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 
+
+}
+
+// Ensure Kotlin compile uses JVM target 17 for compatibility with AGP 9 and Java 17
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }
