@@ -1,13 +1,12 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.devtools.ksp)
     alias(libs.plugins.roborazzi)
     alias(libs.plugins.secrets)
 }
 
 android {
-    namespace = "com.aistudio.iptvplayer.kdyzrw"
+    namespace = "com.example"
 
     compileSdk = 36
 
@@ -20,6 +19,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+
 
     buildTypes {
 
@@ -42,8 +42,8 @@ android {
 
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
 
@@ -53,13 +53,9 @@ android {
     }
 
     composeOptions {
-        // Keep compiler extension version in sync with Kotlin/Compose versions. Adjust if needed.
-        kotlinCompilerExtensionVersion = "1.5.4"
+        kotlinCompilerExtensionVersion = "1.6.0"
     }
 
-    kotlinOptions {
-        // This block is ignored in Gradle Kotlin DSL here; we set jvmTarget in tasks below.
-    }
 
     testOptions {
         unitTests {
@@ -69,6 +65,7 @@ android {
 }
 
 
+
 secrets {
 
     propertiesFileName = ".env"
@@ -76,7 +73,6 @@ secrets {
     defaultPropertiesFileName = ".env.example"
 
 }
-
 
 
 dependencies {
@@ -110,7 +106,6 @@ dependencies {
     implementation(libs.androidx.core.ktx)
 
 
-
     // Lifecycle
 
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -124,7 +119,6 @@ dependencies {
     // Images
 
     implementation(libs.coil.compose)
-
 
 
     // Media Player IPTV
@@ -148,9 +142,7 @@ dependencies {
     implementation(libs.logging.interceptor)
 
 
-
     implementation(libs.moshi.kotlin)
-
 
 
     // Coroutines
@@ -158,7 +150,6 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
     implementation(libs.kotlinx.coroutines.core)
-
 
 
     // Room Database
@@ -173,51 +164,10 @@ dependencies {
     ksp(libs.moshi.kotlin.codegen)
 
 
-
     // Tests
 
     testImplementation(libs.androidx.compose.ui.test.junit4)
 
     testImplementation(libs.androidx.core)
 
-    testImplementation(libs.androidx.junit)
-
-    testImplementation(libs.junit)
-
-    testImplementation(libs.kotlinx.coroutines.test)
-
-    testImplementation(libs.robolectric)
-
-    testImplementation(libs.roborazzi)
-
-    testImplementation(libs.roborazzi.compose)
-
-    testImplementation(libs.roborazzi.junit.rule)
-
-
-
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-
-    androidTestImplementation(libs.androidx.espresso.core)
-
-    androidTestImplementation(libs.androidx.junit)
-
-    androidTestImplementation(libs.androidx.runner)
-
-
-
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
-
-    debugImplementation(libs.androidx.compose.ui.tooling)
-
-
-}
-
-// Ensure Kotlin compile uses JVM target 17 for compatibility with AGP 9 and Java 17
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
-    kotlinOptions {
-        jvmTarget = "17"
-    }
 }
