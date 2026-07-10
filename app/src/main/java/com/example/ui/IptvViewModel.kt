@@ -1,170 +1,177 @@
-‏package com.example.ui
+package com.example.ui
 
-‏import android.app.Application
-‏import androidx.lifecycle.AndroidViewModel
-‏import androidx.lifecycle.viewModelScope
-‏import com.example.data.*
-‏import kotlinx.coroutines.flow.*
-‏import kotlinx.coroutines.launch
-
-
-‏class IptvViewModel(
-‏    application: Application
-‏) : AndroidViewModel(application) {
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.data.*
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
 
-‏    private val repository: IptvRepository
-
-‏    private val lastChannelManager =
-‏        LastChannelManager(application)
-
-
-‏    val playlists: StateFlow<List<Playlist>>
-
-‏    val favoriteChannels: StateFlow<List<Channel>>
+class IptvViewModel(
+    application: Application
+) : AndroidViewModel(application) {
 
 
-‏    private val _selectedPlaylist =
-‏        MutableStateFlow<Playlist?>(null)
+    private val repository: IptvRepository
 
-‏    val selectedPlaylist =
-‏        _selectedPlaylist.asStateFlow()
-
+    private val lastChannelManager =
+        LastChannelManager(application)
 
 
-‏    private val _currentPlayingChannel =
-‏        MutableStateFlow<Channel?>(null)
+    val playlists: StateFlow<List<Playlist>>
 
-‏    val currentPlayingChannel =
-‏        _currentPlayingChannel.asStateFlow()
+    val favoriteChannels: StateFlow<List<Channel>>
+
+
+    private val _selectedPlaylist =
+        MutableStateFlow<Playlist?>(null)
+
+    val selectedPlaylist =
+        _selectedPlaylist.asStateFlow()
 
 
 
-‏    private val _selectedGroup =
-‏        MutableStateFlow<String?>(null)
+    private val _currentPlayingChannel =
+        MutableStateFlow<Channel?>(null)
 
-‏    val selectedGroup =
-‏        _selectedGroup.asStateFlow()
-
-
-
-‏    private val _searchQuery =
-‏        MutableStateFlow("")
-
-‏    val searchQuery =
-‏        _searchQuery.asStateFlow()
+    val currentPlayingChannel =
+        _currentPlayingChannel.asStateFlow()
 
 
 
-‏    private val _importState =
-‏        MutableStateFlow<ImportState>(ImportState.Idle)
+    private val _selectedGroup =
+        MutableStateFlow<String?>(null)
 
-‏    val importState =
-‏        _importState.asStateFlow()
-
-
-
-‏    init {
-
-‏        val db =
-‏            IptvDatabase.getDatabase(application)
-
-‏        repository =
-‏            IptvRepository(db.iptvDao())
+    val selectedGroup =
+        _selectedGroup.asStateFlow()
 
 
-‏        playlists =
-‏            repository.allPlaylists
-‏                .stateIn(
-‏                    viewModelScope,
-‏                    SharingStarted.WhileSubscribed(5000),
-‏                    emptyList()
+
+    private val _searchQuery =
+        MutableStateFlow("")
+
+    val searchQuery =
+        _searchQuery.asStateFlow()
+
+
+
+    private val _importState =
+        MutableStateFlow<ImportState>(ImportState.Idle)
+
+    val importState =
+        _importState.asStateFlow()
+
+
+
+    init {
+
+        val db =
+            IptvDatabase.getDatabase(application)
+
+        repository =
+            IptvRepository(db.iptvDao())
+
+
+        playlists =
+            repository.allPlaylists
+                .stateIn(
+                    viewModelScope,
+                    SharingStarted.WhileSubscribed(5000),
+                    emptyList()
                 )
 
 
-‏        favoriteChannels =
-‏            repository.favoriteChannels
-‏                .stateIn(
-‏                    viewModelScope,
-‏                    SharingStarted.WhileSubscribed(5000),
-‏                    emptyList()
+        favoriteChannels =
+            repository.favoriteChannels
+                .stateIn(
+                    viewModelScope,
+                    SharingStarted.WhileSubscribed(5000),
+                    emptyList()
                 )
 
 
-‏        loadDefault()
+        loadDefault()
 
-‏        restoreLastChannel()
+        restoreLastChannel()
+
+        // Start background sync from assets (if configured)
+        try {
+            startupSync()
+        } catch (_: Throwable) {
+            // ignored - sync extension logs internally
+        }
 
     }
 
 
 
-‏    private fun loadDefault() {
+    private fun loadDefault() {
 
-‏        viewModelScope.launch {
+        viewModelScope.launch {
 
-‏            val existingPlaylists =
-‏                repository.allPlaylists.first()
+            val existingPlaylists =
+                repository.allPlaylists.first()
 
 
-‏            if (existingPlaylists.isEmpty()) {
+            if (existingPlaylists.isEmpty()) {
 
-‏                val result =
-‏                    repository.addPlaylistFromUrl(
-‏                        DefaultPlaylist.NAME,
-‏                        DefaultPlaylist.URL
+                val result =
+                    repository.addPlaylistFromUrl(
+                        DefaultPlaylist.NAME,
+                        DefaultPlaylist.URL
                     )
 
 
-‏                if (result.isSuccess) {
+                if (result.isSuccess) {
 
-‏                    val playlist =
-‏                        repository.allPlaylists.first()
-‏                            .firstOrNull()
+                    val playlist =
+                        repository.allPlaylists.first()
+                            .firstOrNull()
 
 
-‏                    playlist?.let {
+                    playlist?.let {
 
-‏                        _selectedPlaylist.value = it
+                        _selectedPlaylist.value = it
 
-‏                        _selectedGroup.value = "All"
+                        _selectedGroup.value = "All"
 
                     }
                 }
 
 
-‏            } else {
+            } else {
 
-‏                _selectedPlaylist.value =
-‏                    existingPlaylists.first()
+                _selectedPlaylist.value =
+                    existingPlaylists.first()
 
-‏                _selectedGroup.value =
-‏                    "All"
+                _selectedGroup.value =
+                    "All"
             }
         }
     }
 
 
 
-‏    private fun restoreLastChannel() {
+    private fun restoreLastChannel() {
 
-‏        viewModelScope.launch {
+        viewModelScope.launch {
 
-‏            val saved =
-‏                lastChannelManager.getLastChannel()
-‏                    ?: return@launch
+            val saved =
+                lastChannelManager.getLastChannel()
+                    ?: return@launch
 
 
-‏            val channel =
-‏                repository.findChannelByUrl(
-‏                    saved.url
+            val channel =
+                repository.findChannelByUrl(
+                    saved.url
                 )
 
 
-‏            if (channel != null) {
+            if (channel != null) {
 
-‏                _currentPlayingChannel.value =
-‏                    channel
+                _currentPlayingChannel.value =
+                    channel
 
             }
 
@@ -172,119 +179,111 @@
 
     }
 
-‏    val channels: StateFlow<List<Channel>> =
-‏        combine(
-‏            _selectedPlaylist,
-‏            _selectedGroup,
-‏            _searchQuery
-‏        ) { playlist, group, search ->
+    val channels: StateFlow<List<Channel>> =
+        combine(
+            _selectedPlaylist,
+            _selectedGroup,
+            _searchQuery
+        ) { playlist, group, search ->
 
-‏            Triple(
-‏                playlist,
-‏                group,
-‏                search
+            Triple(
+                playlist,
+                group,
+                search
             )
 
-‏        }.flatMapLatest { (playlist, group, search) ->
+        }.flatMapLatest { (playlist, group, search) ->
 
-‏            if (playlist == null) {
+            if (playlist == null) {
 
-‏                flowOf(emptyList())
+                flowOf(emptyList())
 
-‏            } else if (search.isNotBlank()) {
+            } else if (search.isNotBlank()) {
 
-‏                repository.searchChannels(
-‏                    playlist.id,
-‏                    search
+                repository.searchChannels(
+                    playlist.id,
+                    search
                 )
 
-‏            } else {
+            } else {
 
-‏                repository.getChannelsByGroup(
-‏                    playlist.id,
-‏                    group
+                repository.getChannelsByGroup(
+                    playlist.id,
+                    group
                 )
             }
 
-‏        }.stateIn(
-‏            viewModelScope,
-‏            SharingStarted.WhileSubscribed(5000),
-‏            emptyList()
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            emptyList()
         )
 
 
+    val groupTitles: StateFlow<List<String>> =
+        _selectedPlaylist
+            .flatMapLatest { playlist ->
 
-‏    val groupTitles: StateFlow<List<String>> =
-‏        _selectedPlaylist
-‏            .flatMapLatest { playlist ->
+                if (playlist == null)
 
-‏                if (playlist == null)
+                    flowOf(emptyList())
 
-‏                    flowOf(emptyList())
+                else
 
-‏                else
-
-‏                    repository.getGroupTitlesForPlaylist(
-‏                        playlist.id
+                    repository.getGroupTitlesForPlaylist(
+                        playlist.id
                     )
 
             }
-‏            .stateIn(
-‏                viewModelScope,
-‏                SharingStarted.WhileSubscribed(5000),
-‏                emptyList()
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                emptyList()
             )
 
 
-
-
-‏    fun selectPlaylist(
-‏        playlist: Playlist?
+    fun selectPlaylist(
+        playlist: Playlist?
     ) {
 
-‏        _selectedPlaylist.value = playlist
-‏        _selectedGroup.value = "All"
-‏        _searchQuery.value = ""
+        _selectedPlaylist.value = playlist
+        _selectedGroup.value = "All"
+        _searchQuery.value = ""
 
     }
 
 
-
-‏    fun selectGroup(
-‏        group: String?
+    fun selectGroup(
+        group: String?
     ) {
 
-‏        _selectedGroup.value = group
+        _selectedGroup.value = group
 
     }
 
 
-
-
-‏    fun setSearchQuery(
-‏        query: String
+    fun setSearchQuery(
+        query: String
     ) {
 
-‏        _searchQuery.value = query
+        _searchQuery.value = query
 
     }
 
 
-
-
-‏    fun playChannel(
-‏        channel: Channel?
+    fun playChannel(
+        channel: Channel?
     ) {
 
-‏        _currentPlayingChannel.value = channel
+        _currentPlayingChannel.value = channel
 
 
-‏        channel?.let {
+        channel?.let {
 
-‏            viewModelScope.launch {
+            viewModelScope.launch {
 
-‏                lastChannelManager.saveChannel(
-‏                    it
+                lastChannelManager.saveChannel(
+                    it
                 )
 
             }
@@ -293,46 +292,38 @@
 
     }
 
-
-
-
-
-‏    fun toggleFavorite(
-‏        channel: Channel
+    fun toggleFavorite(
+        channel: Channel
     ) {
 
-‏        viewModelScope.launch {
+        viewModelScope.launch {
 
-‏            repository.updateFavoriteStatus(
-‏                channel.id,
-‏                !channel.isFavorite
+            repository.updateFavoriteStatus(
+                channel.id,
+                !channel.isFavorite
             )
 
         }
 
     }
 
-
-
-
-
-‏    fun deletePlaylist(
-‏        playlist: Playlist
+    fun deletePlaylist(
+        playlist: Playlist
     ) {
 
-‏        viewModelScope.launch {
+        viewModelScope.launch {
 
-‏            repository.deletePlaylist(
-‏                playlist.id
+            repository.deletePlaylist(
+                playlist.id
             )
 
 
-‏            if (_selectedPlaylist.value?.id == playlist.id) {
+            if (_selectedPlaylist.value?.id == playlist.id) {
 
-‏                _selectedPlaylist.value = null
-‏                _currentPlayingChannel.value = null
+                _selectedPlaylist.value = null
+                _currentPlayingChannel.value = null
 
-‏                lastChannelManager.clear()
+                lastChannelManager.clear()
 
             }
 
@@ -340,24 +331,20 @@
 
     }
 
+    fun refresh() {
+
+        viewModelScope.launch {
+
+            val playlist =
+                _selectedPlaylist.value
+                    ?: playlists.value.firstOrNull()
 
 
+            playlist?.let {
 
-
-‏    fun refresh() {
-
-‏        viewModelScope.launch {
-
-‏            val playlist =
-‏                _selectedPlaylist.value
-‏                    ?: playlists.value.firstOrNull()
-
-
-‏            playlist?.let {
-
-‏                repository.refreshPlaylist(
-‏                    it.id,
-‏                    it.sourceUrl
+                repository.refreshPlaylist(
+                    it.id,
+                    it.sourceUrl
                 )
 
             }
@@ -366,57 +353,52 @@
 
     }
 
-
-
-
-
-‏    fun addPlaylistFromUrl(
-‏        name: String,
-‏        url: String
+    fun addPlaylistFromUrl(
+        name: String,
+        url: String
     ) {
 
-‏        viewModelScope.launch {
+        viewModelScope.launch {
 
-‏            _importState.value =
-‏                ImportState.Loading
+            _importState.value =
+                ImportState.Loading
 
 
-‏            val result =
-‏                repository.addPlaylistFromUrl(
-‏                    name,
-‏                    url
+            val result =
+                repository.addPlaylistFromUrl(
+                    name,
+                    url
                 )
 
 
-‏            _importState.value =
-‏                result.fold(
+            _importState.value =
+                result.fold(
 
-‏                    onSuccess = {
+                    onSuccess = {
 
-‏                        val newPlaylist =
-‏                            repository.allPlaylists.first()
-‏                                .firstOrNull()
+                        val newPlaylist =
+                            repository.allPlaylists.first()
+                                .firstOrNull()
 
 
-‏                        newPlaylist?.let { playlist ->
+                        newPlaylist?.let { playlist ->
 
-‏                            _selectedPlaylist.value =
-‏                                playlist
+                            _selectedPlaylist.value =
+                                playlist
 
-‏                            _selectedGroup.value =
-‏                                "All"
+                            _selectedGroup.value =
+                                "All"
 
                         }
 
 
-‏                        ImportState.Success()
+                        ImportState.Success()
                     },
 
+                    onFailure = {
 
-‏                    onFailure = {
-
-‏                        ImportState.Error(
-‏                            it.message
+                        ImportState.Error(
+                            it.message
                                 ?: "خطأ غير معروف"
                         )
 
@@ -428,59 +410,54 @@
 
     }
 
-
-
-
-
-‏    fun addPlaylistFromContent(
-‏        name: String,
-‏        content: String
+    fun addPlaylistFromContent(
+        name: String,
+        content: String
     ) {
 
-‏        viewModelScope.launch {
+        viewModelScope.launch {
 
 
-‏            _importState.value =
-‏                ImportState.Loading
+            _importState.value =
+                ImportState.Loading
 
 
-‏            val result =
-‏                repository.addPlaylistFromContent(
-‏                    name,
-‏                    content
+            val result =
+                repository.addPlaylistFromContent(
+                    name,
+                    content
                 )
 
 
-‏            _importState.value =
-‏                result.fold(
+            _importState.value =
+                result.fold(
 
-‏                    onSuccess = {
+                    onSuccess = {
 
-‏                        val newPlaylist =
-‏                            repository.allPlaylists.first()
-‏                                .firstOrNull()
+                        val newPlaylist =
+                            repository.allPlaylists.first()
+                                .firstOrNull()
 
 
-‏                        newPlaylist?.let { playlist ->
+                        newPlaylist?.let { playlist ->
 
-‏                            _selectedPlaylist.value =
-‏                                playlist
+                            _selectedPlaylist.value =
+                                playlist
 
-‏                            _selectedGroup.value =
-‏                                "All"
+                            _selectedGroup.value =
+                                "All"
 
                         }
 
 
-‏                        ImportState.Success()
+                        ImportState.Success()
 
                     },
 
+                    onFailure = {
 
-‏                    onFailure = {
-
-‏                        ImportState.Error(
-‏                            it.message
+                        ImportState.Error(
+                            it.message
                                 ?: "خطأ غير معروف"
                         )
 
@@ -492,26 +469,18 @@
 
     }
 
+    fun resetImportState() {
 
-
-
-
-‏    fun resetImportState() {
-
-‏        _importState.value =
-‏            ImportState.Idle
+        _importState.value =
+            ImportState.Idle
 
     }
 
+    fun updatePlaylists() {
 
-
-
-
-‏    fun updatePlaylists() {
-
-‏        addPlaylistFromUrl(
-‏            name = "ALWAN VIP",
-‏            url = DefaultPlaylist.URL
+        addPlaylistFromUrl(
+            name = "ALWAN VIP",
+            url = DefaultPlaylist.URL
         )
 
     }
