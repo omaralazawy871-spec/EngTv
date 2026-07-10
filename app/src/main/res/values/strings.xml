@@ -1,3 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">EngTv</string>
+    <string name="admin_title">Admin Panel</string>
+    <string name="admin_sync">Sync Now</string>
+    <string name="admin_save">Save</string>
+    <string name="remote_url_label">Remote playlist URL</string>
 </resources>
